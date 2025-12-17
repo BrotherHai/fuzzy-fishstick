@@ -34,7 +34,7 @@ jobs:
       - name: Random Delay (Traffic Control)
         run: |
           echo "🎲 Generating random delay..."
-          DELAY=$((RANDOM % 300 + 1))
+          DELAY=$((RANDOM % 30 + 1))
           echo "⏸️ Sleeping for ${DELAY} seconds..."
           sleep "${DELAY}"
           echo "▶️ Delay finished."
