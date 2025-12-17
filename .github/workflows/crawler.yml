@@ -2,41 +2,7 @@ name: Get Hot News
 
 on:
   schedule:
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # ⚠️ 试用版说明 / Trial Mode
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    #
-    # 🔄 运行机制 / How it works:
-    #    - 每个周期为 7 天，届时自动停止
-    #    - 运行 "Check In" 会重置周期（重新开始 7 天倒计时，而非累加）
-    #    - Each cycle is 7 days, then auto-stops
-    #    - "Check In" resets the cycle (restarts 7-day countdown, not cumulative)
-    #
-    # 💡 设计初衷 / Why this design:
-    #    如果 7 天都忘了签到，或许这些资讯对你来说并非刚需
-    #    适时的暂停，能帮你从信息流中抽离，给大脑留出喘息的空间
-    #    If you forget for 7 days, maybe you don't really need it
-    #    A timely pause helps you detach from the stream and gives your mind space
-    #
-    # 🙏 珍惜资源 / Respect shared resources:
-    #    GitHub Actions 是平台提供的公共资源，每次运行都会消耗算力
-    #    签到机制确保资源分配给真正需要的用户，感谢你的理解与配合
-    #    GitHub Actions is a shared public resource provided by the platform
-    #    Check-in ensures resources go to those who truly need it — thank you
-    #
-    # 🚀 长期使用请部署 Docker 版本 / For long-term use, deploy Docker version
-    #
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    #
-    # 📝 修改运行时间：只改第一个数字（0-59），表示每小时第几分钟运行
-    # 📝 Change time: Only modify the first number (0-59) = minute of each hour
-    #
-    # 示例 / Examples:
-    #   "15 * * * *"     → 每小时第15分钟 / minute 15 every hour
-    #   "30 0-14 * * *"  → 北京时间 8:00-22:00 每小时第30分钟 / Beijing 8am-10pm
-    #
     - cron: "0 0,6,9,12,23 * * *"
-
   workflow_dispatch:
 
 concurrency:
@@ -53,50 +19,54 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      # --------------------------------------------------
+      # 📥 Checkout
+      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
           clean: true
-      # --------------------------------------------------------------------------------
-      # 🚦 TRAFFIC CONTROL / 流量控制
-      # --------------------------------------------------------------------------------
-      # EN: Generates a random delay between 1 and 300 seconds (5 minutes).
-      #     Critical for load balancing.
-      #
-      # CN: 生成 1 到 300 秒（5分钟）之间的随机延迟。
-      #     这对负载均衡至关重要。
-      - name: Random Delay (Traffic Control)
-        if: success()
-        run: |
-          echo "🎲 Traffic Control: Generating random delay..."
-          DELAY=$(( ( RANDOM % 300 )  + 1 ))
-          echo "⏸️  Sleeping for ${DELAY} seconds to spread the load..."
-          sleep ${DELAY}s
-          echo "▶️  Delay finished. Starting crawler..."
 
+      # --------------------------------------------------
+      # 🚦 Traffic Control / 流量控制
+      # --------------------------------------------------
+      - name: Random Delay (Traffic Control)
+        run: |
+          echo "🎲 Generating random delay..."
+          DELAY=$((RANDOM % 300 + 1))
+          echo "⏸️ Sleeping for ${DELAY} seconds..."
+          sleep "${DELAY}"
+          echo "▶️ Delay finished."
+
+      # --------------------------------------------------
+      # 🐍 Python Environment
+      # --------------------------------------------------
       - name: Set up Python
-        if: success()
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-          cache: "pip"
+          cache: pip
 
       - name: Install dependencies
-        if: success()
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify required files
-        if: success()
+      # --------------------------------------------------
+      # 🔍 Validation
+      # --------------------------------------------------
+      - name: Verify required config
         run: |
           if [ ! -f config/config.yaml ]; then
-            echo "Error: Config missing"
+            echo "❌ config/config.yaml not found"
             exit 1
           fi
-      - name: Run crawler
-        if: success()
+
+      # --------------------------------------------------
+      # 🕷️ Run crawler
+      # --------------------------------------------------
+      - name: Run TrendRadar
         env:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -104,24 +74,29 @@ jobs:
           DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
           WEWORK_WEBHOOK_URL: ${{ secrets.WEWORK_WEBHOOK_URL }}
           WEWORK_MSG_TYPE: ${{ secrets.WEWORK_MSG_TYPE }}
+
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
           EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NTFY_SERVER_URL: ${{ secrets.NTFY_SERVER_URL }}
           NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
           BARK_URL: ${{ secrets.BARK_URL }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
           STORAGE_BACKEND: auto
           LOCAL_RETENTION_DAYS: ${{ secrets.LOCAL_RETENTION_DAYS }}
           REMOTE_RETENTION_DAYS: ${{ secrets.REMOTE_RETENTION_DAYS }}
+
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
           S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
           S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
           S3_REGION: ${{ secrets.S3_REGION }}
+
           GITHUB_ACTIONS: true
         run: python -m trendradar
 
@@ -129,18 +104,15 @@ jobs:
       # 📦 Prepare Cloudflare Pages deployment
       # --------------------------------------------------
       - name: Prepare deployment directory
-        if: success()
         run: |
-          # 1. 创建一个干净的临时目录
           rm -rf deploy_dist
           mkdir -p deploy_dist
 
-          # 2. 将根目录生成的 index.html 复制进去
           if [ -f index.html ]; then
             cp index.html deploy_dist/index.html
-            echo "✅ 成功将 index.html 移动到部署目录"
+            echo "✅ index.html prepared for deployment"
           else
-            echo "❌ 错误：未找到 index.html，爬虫可能运行失败"
+            echo "❌ index.html not found"
             exit 1
           fi
 
@@ -148,13 +120,10 @@ jobs:
       # 🚀 Publish to Cloudflare Pages
       # --------------------------------------------------
       - name: Publish to Cloudflare Pages
-        if: success()
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: worker-divine-bush-7cc2   # 改成你的 Pages 项目名
+          projectName: worker-divine-bush-7cc2
           directory: deploy_dist
           branch: main
-          
-        run: python -m trendradar
