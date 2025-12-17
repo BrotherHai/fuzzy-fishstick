@@ -35,7 +35,7 @@ on:
     #   "15 * * * *"     → 每小时第15分钟 / minute 15 every hour
     #   "30 0-14 * * *"  → 北京时间 8:00-22:00 每小时第30分钟 / Beijing 8am-10pm
     #
-    - cron: "33 * * * *"
+    - cron: "0 0,6,9,12,23 * * *"
 
   workflow_dispatch:
 
@@ -58,42 +58,6 @@ jobs:
         with:
           fetch-depth: 1
           clean: true
-
-      - name: Check Expiration
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          WORKFLOW_FILE="crawler.yml"
-          API_URL="repos/${{ github.repository }}/actions/workflows/$WORKFLOW_FILE/runs"
-
-          TOTAL=$(gh api "$API_URL" --jq '.total_count')
-          if [ -z "$TOTAL" ] || [ "$TOTAL" -eq 0 ]; then
-            echo "No previous runs found, skipping expiration check"
-            exit 0
-          fi
-
-          LAST_PAGE=$(( (TOTAL + 99) / 100 ))
-          FIRST_RUN_DATE=$(gh api "$API_URL?per_page=100&page=$LAST_PAGE" --jq '.workflow_runs[-1].created_at')
-
-          if [ -n "$FIRST_RUN_DATE" ]; then
-            CURRENT_TIMESTAMP=$(date +%s)
-            FIRST_RUN_TIMESTAMP=$(date -d "$FIRST_RUN_DATE" +%s)
-            DIFF_SECONDS=$((CURRENT_TIMESTAMP - FIRST_RUN_TIMESTAMP))
-            LIMIT_SECONDS=604800
-
-            if [ $DIFF_SECONDS -gt $LIMIT_SECONDS ]; then
-              echo "⚠️ 试用期已结束，请运行 'Check In' 签到续期"
-              echo "⚠️ Trial expired. Run 'Check In' to renew."
-              gh workflow disable "$WORKFLOW_FILE"
-              exit 1
-            else
-              DAYS_LEFT=$(( (LIMIT_SECONDS - DIFF_SECONDS) / 86400 ))
-              echo "✅ 试用期剩余 ${DAYS_LEFT} 天，到期前请运行 'Check In' 签到续期"
-              echo "✅ Trial: ${DAYS_LEFT} days left. Run 'Check In' before expiry to renew."
-            fi
-          fi
-
-
       # --------------------------------------------------------------------------------
       # 🚦 TRAFFIC CONTROL / 流量控制
       # --------------------------------------------------------------------------------
@@ -131,7 +95,6 @@ jobs:
             echo "Error: Config missing"
             exit 1
           fi
-
       - name: Run crawler
         if: success()
         env:
@@ -160,4 +123,38 @@ jobs:
           S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
           S3_REGION: ${{ secrets.S3_REGION }}
           GITHUB_ACTIONS: true
+        run: python -m trendradar
+
+      # --------------------------------------------------
+      # 📦 Prepare Cloudflare Pages deployment
+      # --------------------------------------------------
+      - name: Prepare deployment directory
+        if: success()
+        run: |
+          # 1. 创建一个干净的临时目录
+          rm -rf deploy_dist
+          mkdir -p deploy_dist
+
+          # 2. 将根目录生成的 index.html 复制进去
+          if [ -f index.html ]; then
+            cp index.html deploy_dist/index.html
+            echo "✅ 成功将 index.html 移动到部署目录"
+          else
+            echo "❌ 错误：未找到 index.html，爬虫可能运行失败"
+            exit 1
+          fi
+
+      # --------------------------------------------------
+      # 🚀 Publish to Cloudflare Pages
+      # --------------------------------------------------
+      - name: Publish to Cloudflare Pages
+        if: success()
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: worker-divine-bush-7cc2   # 改成你的 Pages 项目名
+          directory: deploy_dist
+          branch: main
+          
         run: python -m trendradar
