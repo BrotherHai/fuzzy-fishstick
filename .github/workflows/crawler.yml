@@ -100,29 +100,44 @@ jobs:
           GITHUB_ACTIONS: true
         run: python -m trendradar
               # --------------------------------------------------
-      # 📦 Prepare Cloudflare Pages deployment
-      # --------------------------------------------------
-      - name: Prepare deployment directory
-        run: |
-          rm -rf deploy_dist
-          mkdir -p deploy_dist
+    name: Deploy to Cloudflare Pages (Wrangler)
+    
+    on:
+      push:
+        branches:
+          - main
+    
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+    
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@v4
+    
+          # 📦 Prepare deployment directory
+          - name: Prepare deployment directory
+            run: |
+              rm -rf deploy_dist
+              mkdir -p deploy_dist
+    
+              if [ -f index.html ]; then
+                cp index.html deploy_dist/index.html
+                echo "✅ index.html prepared for deployment"
+              else
+                echo "❌ index.html not found"
+                exit 1
+              fi
+    
+          # 🚀 Deploy to Cloudflare Pages using Wrangler
+          - name: Deploy to Cloudflare Pages
+            run: |
+              npm install -g wrangler
+              wrangler pages deploy deploy_dist \
+                --project-name=lxhnews
+            env:
+              CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-          if [ -f index.html ]; then
-            cp index.html deploy_dist/index.html
-            echo "✅ index.html prepared for deployment"
-          else
-            echo "❌ index.html not found"
-            exit 1
-          fi
-
-      # --------------------------------------------------
-      # 🚀 Publish to Cloudflare Pages
-      # --------------------------------------------------
-      - name: Publish to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: lxhnews
           directory: deploy_dist
           branch: main
