@@ -124,6 +124,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: frosty-shadow-5190
+          projectName: liuxiaohai
           directory: deploy_dist
           branch: main
