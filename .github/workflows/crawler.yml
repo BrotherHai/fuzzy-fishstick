@@ -124,6 +124,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: worker-divine-bush-7cc2
+          projectName: frosty-shadow-5190
           directory: deploy_dist
           branch: main
