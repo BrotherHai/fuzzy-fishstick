@@ -100,24 +100,24 @@ jobs:
           GITHUB_ACTIONS: true
         run: python -m trendradar
               # --------------------------------------------------
-      - name: Deploy to Cloudflare Pages (Wrangler)
+      - name: Prepare deployment directory
         run: |
           rm -rf deploy_dist
           mkdir -p deploy_dist
-
           if [ -f index.html ]; then
             cp index.html deploy_dist/index.html
-            echo "✅ index.html prepared for deployment"
+            echo "✅ index.html prepared"
           else
             echo "❌ index.html not found"
             exit 1
           fi
-      # 🚀 Deploy to Cloudflare Pages using Wrangler
+    
+      # 2. 使用官方 Action 部署
       - name: Deploy to Cloudflare Pages
-        run: |
-          npm install -g wrangler
-          wrangler pages deploy deploy_dist \
-            --project-name=lxhnews
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: lxhnews
+          directory: deploy_dist
 
