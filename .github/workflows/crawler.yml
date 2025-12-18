@@ -99,3 +99,30 @@ jobs:
 
           GITHUB_ACTIONS: true
         run: python -m trendradar
+              # --------------------------------------------------
+      # 📦 Prepare Cloudflare Pages deployment
+      # --------------------------------------------------
+      - name: Prepare deployment directory
+        run: |
+          rm -rf deploy_dist
+          mkdir -p deploy_dist
+
+          if [ -f index.html ]; then
+            cp index.html deploy_dist/index.html
+            echo "✅ index.html prepared for deployment"
+          else
+            echo "❌ index.html not found"
+            exit 1
+          fi
+
+      # --------------------------------------------------
+      # 🚀 Publish to Cloudflare Pages
+      # --------------------------------------------------
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: lxhnews
+          directory: deploy_dist
+          branch: main
